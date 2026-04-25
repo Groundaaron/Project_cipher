@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import anime from 'animejs';
 import { useGameState } from '../hooks/useGameState';
+import { useAmbient } from '../hooks/useAmbient';
 import type { Difficulty } from '../game/types';
 import TimerDisplay from '../components/TimerDisplay';
 import GuessRow from '../components/GuessRow';
@@ -31,6 +32,8 @@ export default function GameScreen({ difficulty, onGameEnd, onBack, onLeaderboar
     config,
   } = useGameState();
 
+  const { startGameAmbient, stopGameAmbient, setTension } = useAmbient();
+
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [colorblindMode, setColorblindMode] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
@@ -47,6 +50,33 @@ export default function GameScreen({ difficulty, onGameEnd, onBack, onLeaderboar
       startTimer();
     }
   }, [gameStarted, gameState.isGameOver, startTimer]);
+
+  // Start ambient on mount, stop on unmount
+  useEffect(() => {
+    startGameAmbient();
+    return () => {
+      stopGameAmbient();
+    };
+  }, [startGameAmbient, stopGameAmbient]);
+
+  // Dynamic tension: increase intensity during tense moments
+  useEffect(() => {
+    if (gameState.isGameOver) {
+      setTension(0);
+      return;
+    }
+
+    const attemptFraction = gameState.currentRow / config.maxAttempts;
+    const timeFraction = gameState.timeRemaining / config.timeLimit;
+
+    // Tense when: low time, many attempts used, or last few attempts
+    let tension = 0;
+    if (timeFraction < 0.2) tension = Math.max(tension, 1 - timeFraction / 0.2);
+    if (attemptFraction > 0.7) tension = Math.max(tension, (attemptFraction - 0.7) / 0.3);
+    if (config.maxAttempts - gameState.currentRow <= 2) tension = Math.max(tension, 0.8);
+
+    setTension(Math.min(1, tension));
+  }, [gameState.currentRow, gameState.timeRemaining, gameState.isGameOver, config.maxAttempts, config.timeLimit, setTension]);
 
   useEffect(() => {
     if (!screenRef.current) return;
@@ -122,6 +152,12 @@ export default function GameScreen({ difficulty, onGameEnd, onBack, onLeaderboar
     playHint();
   }, [gameState.isGameOver, gameStarted, useHint]);
 
+  const handleBack = useCallback(() => {
+    stopGameAmbient();
+    playClick();
+    onBack();
+  }, [stopGameAmbient, onBack]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (gameState.isGameOver) return;
@@ -157,7 +193,7 @@ export default function GameScreen({ difficulty, onGameEnd, onBack, onLeaderboar
       {/* Top Bar */}
       <div className="flex items-center justify-between px-4 py-3">
         <button
-          onClick={() => { playClick(); onBack(); }}
+          onClick={handleBack}
           className="text-xs tracking-wider uppercase transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
         >

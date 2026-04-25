@@ -2,10 +2,12 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import anime from 'animejs';
 import type { Difficulty } from './game/types';
 import { ThemeContext, useThemeProvider } from './hooks/useTheme';
+import { AmbientContext, useAmbientProvider } from './hooks/useAmbient';
 import { useMultiplayer } from './multiplayer/useMultiplayer';
 import type { RoomData } from './multiplayer/types';
 import ParticleBackground from './components/ParticleBackground';
 import ThemeToggle from './components/ThemeToggle';
+import AmbientSettings from './components/AmbientSettings';
 import StartScreen from './screens/StartScreen';
 import GameScreen from './screens/GameScreen';
 import EndScreen from './screens/EndScreen';
@@ -33,6 +35,7 @@ function AppContent() {
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [endData, setEndData] = useState<EndGameData | null>(null);
   const [previousScreen, setPreviousScreen] = useState<Screen>('start');
+  const [showAmbientSettings, setShowAmbientSettings] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Multiplayer state
@@ -235,10 +238,29 @@ function AppContent() {
       />
       <ParticleBackground />
 
-      {/* Theme toggle */}
-      <div className="fixed top-4 right-4 z-50">
+      {/* Top-right controls */}
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+        <button
+          onClick={() => setShowAmbientSettings(true)}
+          className="relative flex items-center justify-center rounded-full transition-all duration-300"
+          style={{
+            width: 40,
+            height: 40,
+            background: 'var(--toggle-bg)',
+            border: '1px solid var(--toggle-border)',
+            boxShadow: 'var(--toggle-shadow)',
+          }}
+          aria-label="Ambient sound settings"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-secondary)' }}>
+            <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+          </svg>
+        </button>
         <ThemeToggle />
       </div>
+
+      {/* Ambient settings panel */}
+      <AmbientSettings open={showAmbientSettings} onClose={() => setShowAmbientSettings(false)} />
 
       {/* Screen content */}
       <div ref={containerRef} className="relative z-10 max-w-lg mx-auto min-h-screen">
@@ -389,10 +411,13 @@ function AppContent() {
 
 export default function App() {
   const { theme, toggleTheme, animationsEnabled, setAnimationsEnabled } = useThemeProvider();
+  const ambient = useAmbientProvider();
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, animationsEnabled, setAnimationsEnabled }}>
-      <AppContent />
+      <AmbientContext.Provider value={ambient}>
+        <AppContent />
+      </AmbientContext.Provider>
     </ThemeContext.Provider>
   );
 }
